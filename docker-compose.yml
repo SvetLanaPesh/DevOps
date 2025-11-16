@@ -1,0 +1,31 @@
+name: devops
+services:
+  backend:
+    build:
+      context: ../DevOps-backend
+      dockerfile: Dockerfile
+    container_name: backend-app
+    image: backend:2.0
+    networks:
+      - app-network
+    restart: always
+    volumes:
+      - backend_data:/app
+  frontend:
+    build:
+      context: ../DevOps-frontend
+      dockerfile: Dockerfile
+    container_name: frontend-app
+    depends_on:
+      backend:
+        condition: service_started
+        required: true
+    image: frontend:2.0
+    networks:
+      - app-network
+    restart: always
+networks:
+  app-network:
+volumes:
+  backend_data:
+
