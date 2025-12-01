@@ -12,6 +12,7 @@
     repo: "{{ frontend_repo }}"
     dest: "{{ frontend_dir }}"
     version: "{{ frontend_version }}"
+    forse: yes
     clone: yes
     update: yes
 
@@ -20,6 +21,7 @@
     repo: "{{ backend_repo }}"
     dest: "{{ backend_dir }}"
     version: "{{ backend_version }}"
+    forse: yes
     clone: yes
     update: yes
 
@@ -27,6 +29,7 @@
   git:
     repo: "{{ devops_repo }}"
     dest: "{{ devops_dir }}"
+    forse: yes
     clone: yes
     update: yes
 
