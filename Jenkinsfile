@@ -50,7 +50,7 @@ pipeline {
                     echo '=== ПОДГОТОВКА ОКРУЖЕНИЯ НА УДАЛЕННОЙ ВМ ==='
                     echo "Подключаемся к ВМ: ${VM_USER}@${VM_IP}"
                     
-                    dir('ansible') {
+                    dir('ansible-project') {
                         // Тестовое подключение к ВМ
                         sh """
                             echo 'Проверяем подключение к ВМ...'
@@ -96,7 +96,7 @@ pipeline {
                 script {
                     echo '=== ЗАПУСК BACKEND И FRONTEND ЧЕРЕЗ DOCKER COMPOSE ==='
                     
-                    dir('ansible') {
+                    dir('ansible-project') {
                         ansiblePlaybook(
                             playbook: 'run_playbook.yml',
                             inventory: 'hosts',
@@ -118,7 +118,7 @@ colorized: true,
                 script {
                     echo '=== ПРОВЕРКА ДОСТУПНОСТИ СЕРВИСОВ ==='
                     
-                    dir('ansible') {
+                    dir('ansible-project') {
                         // Проверка бекенда
                         sh """
                             echo 'Проверяем доступность бекенда...'
