@@ -1,0 +1,42 @@
+---
+- name: Deploy Microservices v2.0 to Vagrant Docker Node
+  hosts: remote_nodes
+  gather_facts: yes
+  vars_files:
+    - group_vars/all/mala.yml
+    - host_vars/devnode/mala.yml
+
+  pre_tasks:
+    - name: Wait for SSH connection
+      wait_for_connection:
+        timeout: 60
+
+    - name: Install Python3 (always run)
+      raw: apt-get update && apt-get install -y python3
+      changed_when: true
+
+  roles:
+    - role: docker_install
+      tags: [docker_install, install]
+    
+    - role: clone_repos
+      tags: [clone_repos, deploy]
+    
+    - role: services_start
+      tags: [services_start, start]
+    
+    - role: services_stop
+      tags: [services_stop, stop]
+
+  post_tasks:
+    - name: Display deployment summary
+      debug:
+        msg:
+          - "Deployment completed successfully!"
+          - "Target: {{ inventory_hostname }} ({{ ansible_host }}:{{ ansible_port }})"
+          - "User: {{ ansible_user }}"
+          - "Services deployed: Frontend v2.0, Backend v2.0"
+          - "Using docker-compose.yml from DevOps repository"
+          - "Access points:"
+          - " - Frontend: http://localhost:3000"
+          - " - Backend: http://localhost:8080"

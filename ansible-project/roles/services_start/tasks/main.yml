@@ -1,0 +1,42 @@
+---
+- name: Start microservices
+  command: docker-compose up -d
+  args:
+    chdir: "{{ base_dir }}"
+  register: start_result
+
+- name: Wait for services to initialize
+  pause:
+    seconds: 10
+
+- name: Check services status
+  command: docker-compose ps
+  args:
+    chdir: "{{ base_dir }}"
+  register: services_status
+
+- name: Show services status
+  debug:
+    msg: "{{ services_status.stdout_lines }}"
+
+- name: Quick health check
+  block:
+    - name: Test backend
+      shell: |
+        curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/data || echo "500"
+      register: backend_check
+      changed_when: false
+
+    - name: Test frontend
+      shell: |
+        curl -s -o /dev/null -w "%{http_code}" http://localhost:80 || echo "500"
+      register: frontend_check
+      changed_when: false
+
+    - name: Show health status
+      debug:
+        msg:
+          - "Backend status: {{ backend_check.stdout }}"
+          - "Frontend status: {{ frontend_check.stdout }}"
+  ignore_errors: yes
+

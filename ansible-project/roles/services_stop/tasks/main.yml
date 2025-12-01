@@ -1,0 +1,14 @@
+---
+- name: Stop our microservices only
+  command: docker-compose down
+  args:
+    chdir: "{{ base_dir }}"
+  register: stop_result
+
+- name: Show stop result
+  debug:
+    msg: "{{ stop_result.stdout }}"
+
+- name: Confirm services stopped
+  debug:
+    msg: "Microservices stopped successfully"

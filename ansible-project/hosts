@@ -1,0 +1,12 @@
+[remote_nodes]
+devnode ansible_host=127.0.0.1 ansible_port=1234
+
+[custom_group]
+devnode
+
+[all:vars]
+ansible_connection=ssh
+ansible_user=lana25
+ansible_ssh_private_key_file=../vagrant/id_ed25519_devops
+ansible_become=true
+ansible_become_method=sudo

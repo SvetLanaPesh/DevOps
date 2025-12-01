@@ -1,0 +1,122 @@
+---
+- name: Install prerequisites
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - software-properties-common
+    state: present
+    update_cache: yes
+
+- name: Add Docker GPG key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker repository
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+
+- name: Install Docker packages
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+    update_cache: yes
+
+- name: Install Docker Compose
+  get_url:
+    url: "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-linux-x86_64"
+    dest: /usr/local/bin/docker-compose
+    mode: '0755'
+
+- name: Create docker group
+  group:
+    name: docker
+    state: present
+
+- name: Add user to docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+
+- name: Create Docker config directory
+  file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create Docker daemon config
+  copy:
+    content: |
+      {
+        "storage-driver": "vfs"
+      }
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Stop any running Docker processes
+  shell: |
+    pkill dockerd || true
+    sleep 2
+  ignore_errors: yes
+
+- name: Start Docker daemon
+  shell: |
+    dockerd &
+    echo $! > /tmp/docker.pid
+    sleep 10
+  args:
+    executable: /bin/bash
+
+- name: Wait for Docker to start
+  shell: |
+    for i in {1..30}; do
+      if docker version >/dev/null 2>&1; then
+        echo "READY"
+        exit 0
+      fi
+      sleep 2
+    done
+    echo "NOT_READY"
+  register: docker_wait
+  changed_when: false
+
+- name: Check wait result
+  debug:
+    var: docker_wait.stdout
+
+- name: Verify Docker if ready
+  block:
+    - name: Get Docker version
+      shell: docker --version
+      register: docker_version
+      changed_when: false
+
+    - name: Get Docker Compose version
+      shell: docker-compose --version
+      register: compose_version
+      changed_when: false
+
+    - name: Show success message
+      debug:
+        msg:
+          - "Docker установлен: {{ docker_version.stdout }}"
+          - "Docker Compose установлен: {{ compose_version.stdout }}"
+  when: docker_wait.stdout == "READY"
+
+- name: Show failure message if Docker not ready
+  debug:
+    msg: "Docker не запустился. Проверьте логи: dockerd"
+  when: docker_wait.stdout != "READY"

@@ -1,0 +1,5 @@
+---
+# Host-specific variables for Vagrant Docker node
+ansible_host: 127.0.0.1
+ansible_port: 1234
+host_description: "Vagrant Docker Node - Microservices Deployment"

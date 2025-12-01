@@ -1,0 +1,38 @@
+---
+# Application configuration
+compose_project_name: "microservices"
+app_install_path: "/opt/{{ app_name }}"
+ansible_connection: ssh
+ansible_user: lana25
+ansible_become: yes
+ansible_become_method: sudo
+ansible_python_interpreter: /usr/bin/python3
+
+# Docker settings
+docker_compose_version: "v2.24.0"
+
+# Repository URLs
+frontend_repo: "https://github.com/SvetLanaPesh/devops-frontend.git"
+backend_repo: "https://github.com/SvetLanaPesh/devops-backend.git"
+devops_repo: "https://github.com/SvetLanaPesh/devops.git"
+
+# Versions
+frontend_version: "v2.0"
+backend_version: "v2.0"
+devops_version: "main"
+
+# Docker Compose
+docker_compose_path: "{{ app_install_path }}/devops/docker-compose.yml"
+
+# Service ports (для проверки)
+frontend_port: 80
+backend_port: 5000
+
+# Deployment directories
+base_dir: "/home/lana25/microservices"
+frontend_dir: "{{ base_dir }}/frontend"
+backend_dir: "{{ base_dir }}/backend"
+devops_dir: "{{ base_dir }}/devops"
+
+
+

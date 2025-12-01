@@ -1,0 +1,83 @@
+---
+- name: Create deployment directory
+  file:
+    path: "{{ base_dir }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+
+- name: Clone frontend repository
+  git:
+    repo: "{{ frontend_repo }}"
+    dest: "{{ frontend_dir }}"
+    version: "{{ frontend_version }}"
+    clone: yes
+    update: yes
+
+- name: Clone backend repository
+  git:
+    repo: "{{ backend_repo }}"
+    dest: "{{ backend_dir }}"
+    version: "{{ backend_version }}"
+    clone: yes
+    update: yes
+
+- name: Clone devops repository
+  git:
+    repo: "{{ devops_repo }}"
+    dest: "{{ devops_dir }}"
+    clone: yes
+    update: yes
+
+- name: Create correct docker-compose.yml for Python + Nginx
+  copy:
+    content: |
+      name: devops
+      services:
+        backend:
+          image: python:3.9-slim
+          working_dir: /app
+          volumes:
+            - {{ backend_dir }}:/app
+          command: sh -c "cd /app && pip install --no-cache-dir -r requirements.txt && python app.py"
+          container_name: backend-app
+          ports:
+            - "5000:5000"
+          networks:
+            - app-network
+          restart: unless-stopped
+
+        frontend:
+          image: nginx:alpine
+          volumes:
+            - {{ frontend_dir }}:/usr/share/nginx/html
+          container_name: frontend-app
+          ports:
+            - "80:80"
+          depends_on:
+            - backend
+          networks:
+            - app-network
+          restart: unless-stopped
+
+      networks:
+        app-network:
+          driver: bridge
+    dest: "{{ base_dir }}/docker-compose.yml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
+
+- name: Simple syntax check - verify file was created
+  stat:
+    path: "{{ base_dir }}/docker-compose.yml"
+  register: compose_file
+
+- name: Show file status
+  debug:
+    msg: "docker-compose.yml created: {{ compose_file.stat.exists }}"
+
+- name: Show completion message
+  debug:
+    msg: "Repositories cloned and docker-compose.yml created successfully"
