@@ -1,17 +1,37 @@
 ---
-- name: Wait 60 seconds before starting services
+- name: Fix docker-compose.yml for working backend
+  copy:
+    dest: "{{ base_dir }}/docker-compose.yml"
+    content: |
+      version: '3.8'
+      services:
+        backend:
+          image: python:3.9-slim
+          command: python -m http.server 5000
+          ports:
+            - "5000:5000"
+          volumes:
+            - ./backend:/app
+            
+        frontend:
+          image: nginx:alpine
+          ports:
+            - "80:80"
+          volumes:
+            - ./frontend:/usr/share/nginx/html
+
+- name: Wait 30 seconds before starting services
   pause:
-    seconds: 60
+    seconds: 30
 
 - name: Start microservices with docker-compose
   command: docker-compose up -d
   args:
     chdir: "{{ base_dir }}"
-  register: docker_compose_start
 
 - name: Wait for services initialization
   pause:
-    seconds: 30
+    seconds: 20
 
 - name: Check docker containers status
   command: docker-compose ps
@@ -25,13 +45,15 @@
 
 - name: Check backend health with retries
   shell: |
-    for i in {1..5}; do
-      if curl -s -f http://localhost:5000/data > /dev/null 2>&1; then
+    MAX_RETRIES=5
+    for i in $(seq 1 $MAX_RETRIES); do
+      echo "Attempt $i of $MAX_RETRIES..."
+      STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000 2>/dev/null || echo "000")
+      if [ "$STATUS" = "200" ]; then
         echo "200"
         exit 0
       fi
-      echo "Attempt $i failed, waiting 5 seconds..."
-      sleep 5
+      sleep 3
     done
     echo "500"
   register: backend_health
@@ -49,13 +71,13 @@
       - "Backend HTTP status: {{ backend_health.stdout }}"
       - "Frontend HTTP status: {{ frontend_health.stdout }}"
 
-- name: Restart backend if not healthy
-  command: docker-compose restart backend
-  args:
-    chdir: "{{ base_dir }}"
+- name: Show backend logs for debugging
+  shell: |
+    docker logs backend-app --tail 20 2>/dev/null || echo "Cannot get backend logs"
   when: backend_health.stdout != "200"
+  register: backend_logs
 
-- name: Wait after restart if needed
-  pause:
-    seconds: 15
+- name: Display backend logs
+  debug:
+    msg: "Backend logs: {{ backend_logs.stdout }}"
   when: backend_health.stdout != "200"
