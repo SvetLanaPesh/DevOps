@@ -7,6 +7,6 @@ devnode
 [all:vars]
 ansible_connection=ssh
 ansible_user=lana25
-ansible_ssh_private_key_file=../vagrant/id_ed25519_devops
+ansible_ssh_private_key_file=/tmp/jenkins_ssh_key
 ansible_become=true
 ansible_become_method=sudo
