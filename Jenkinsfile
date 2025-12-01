@@ -7,7 +7,8 @@ pipeline {
     
     environment {
         // Настройки для подключения к ВМ
-        VM_IP = '192.168.56.10'
+        VM_HOST = '127.0.0.1'
+        VM_POST = '1234'
         VM_USER = 'lana25'
         SSH_KEY_PATH = '/tmp/jenkins_ssh_key'
         
