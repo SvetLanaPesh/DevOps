@@ -1,83 +1,61 @@
 ---
-- name: Start microservices
-  hosts: devnode
-  tags: start_services
-  tasks:
-    # 1. ЖДЕМ перед запуском (главное исправление!)
-    - name: Wait before starting services
-      pause:
-        seconds: 45
-      
-    # 2. Запускаем docker-compose
-    - name: Start docker-compose
-      command: docker-compose up -d
-      args:
-        chdir: "{{ base_dir }}"
-      register: start_result
-      
-    # 3. ЖДЕМ после запуска
-    - name: Wait for services to initialize
-      pause:
-        seconds: 30
-      
-    # 4. Проверяем статус
-    - name: Check services status
-      command: docker-compose ps
-      args:
-        chdir: "{{ base_dir }}"
-      register: services_status
-      
-    - name: Show services status
-      debug:
-        msg: "{{ services_status.stdout_lines }}"
-      
-    # 5. Health check с повторными попытками
-    - name: Test backend with retries
-      shell: |
-        # Пробуем 3 раза с интервалом
-        for i in {1..3}; do
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/data 2>/dev/null || echo "000")
-          if [ "$STATUS" = "200" ]; then
-            echo "200"
-            exit 0
-          fi
-          echo "Попытка $i: статус $STATUS"
-          sleep 10
-        done
-        echo "$STATUS"
-      register: backend_check
-      changed_when: false
-      
-    - name: Test frontend with retries
-      shell: |
-        for i in {1..3}; do
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:80 2>/dev/null || echo "000")
-          if [ "$STATUS" = "200" ]; then
-            echo "200"
-            exit 0
-          fi
-          sleep 5
-        done
-        echo "$STATUS"
-      register: frontend_check
-      changed_when: false
-      
-    - name: Show health status
-      debug:
-        msg:
-          - "Backend status: {{ backend_check.stdout }}"
-          - "Frontend status: {{ frontend_check.stdout }}"
-          
-    # 6. Перезапускаем backend если не работает
-    - name: Restart backend if unhealthy
-      command: docker-compose restart backend
-      args:
-        chdir: "{{ base_dir }}"
-      when: backend_check.stdout != "200"
-      
-    # 7. Финальное ожидание
-    - name: Final wait after possible restart
-      pause:
-        seconds: 15
-      when: backend_check.stdout != "200"
+- name: Wait 60 seconds before starting services
+  pause:
+    seconds: 60
 
+- name: Start microservices with docker-compose
+  command: docker-compose up -d
+  args:
+    chdir: "{{ base_dir }}"
+  register: docker_compose_start
+
+- name: Wait for services initialization
+  pause:
+    seconds: 30
+
+- name: Check docker containers status
+  command: docker-compose ps
+  args:
+    chdir: "{{ base_dir }}"
+  register: containers_status
+
+- name: Show containers status
+  debug:
+    msg: "{{ containers_status.stdout_lines }}"
+
+- name: Check backend health with retries
+  shell: |
+    for i in {1..5}; do
+      if curl -s -f http://localhost:5000/data > /dev/null 2>&1; then
+        echo "200"
+        exit 0
+      fi
+      echo "Attempt $i failed, waiting 5 seconds..."
+      sleep 5
+    done
+    echo "500"
+  register: backend_health
+  changed_when: false
+
+- name: Check frontend health
+  shell: |
+    curl -s -o /dev/null -w "%{http_code}" http://localhost:80 || echo "500"
+  register: frontend_health
+  changed_when: false
+
+- name: Show services health status
+  debug:
+    msg:
+      - "Backend HTTP status: {{ backend_health.stdout }}"
+      - "Frontend HTTP status: {{ frontend_health.stdout }}"
+
+- name: Restart backend if not healthy
+  command: docker-compose restart backend
+  args:
+    chdir: "{{ base_dir }}"
+  when: backend_health.stdout != "200"
+
+- name: Wait after restart if needed
+  pause:
+    seconds: 15
+  when: backend_health.stdout != "200"
