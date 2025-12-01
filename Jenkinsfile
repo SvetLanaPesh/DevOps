@@ -60,7 +60,7 @@ pipeline {
                     ansiblePlaybook(
                         playbook: 'run_playbook.yml',
                         inventory: 'hosts',
-                        tags: 'start_services',
+                        tags: 'services_start',
                         credentialsId: 'vagrant-vm-key',
                         colorized: true
                     )
