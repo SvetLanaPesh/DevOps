@@ -6,9 +6,6 @@ pipeline {
     }
     
     environment {
-        VM_HOST = '127.0.0.1'
-        VM_PORT = '1234'
-        VM_USER = 'lana25'
         SSH_KEY_PATH = '/tmp/jenkins_ssh_key'
     }
     
