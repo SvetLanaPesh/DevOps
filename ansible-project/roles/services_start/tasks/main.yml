@@ -1,4 +1,28 @@
 ---
+- name: Stop and remove old containers
+  shell: |
+    # Останавливаем и удаляем ВСЕ контейнеры с нашими именами
+    docker stop backend-app frontend-app microservices-backend-1 microservices-frontend-1 2>/dev/null || true
+    docker rm backend-app frontend-app microservices-backend-1 microservices-frontend-1 2>/dev/null || true
+    # Останавливаем docker-compose если запущен
+    cd "{{ base_dir }}" && docker-compose down 2>/dev/null || true
+  ignore_errors: yes
+
+- name: Check and free port 80
+  shell: |
+    # Проверяем кто занимает порт 80
+    if netstat -tuln | grep ':80 ' > /dev/null; then
+      echo "Port 80 is in use, finding process..."
+      # Находим и убиваем процесс на порту 80
+      PID=$(lsof -ti:80 2>/dev/null || echo "")
+      if [ -n "$PID" ]; then
+        echo "Killing process $PID using port 80"
+        kill -9 $PID 2>/dev/null || true
+        sleep 2
+      fi
+    fi
+  ignore_errors: yes
+
 - name: Fix docker-compose.yml for working backend
   copy:
     dest: "{{ base_dir }}/docker-compose.yml"
@@ -12,7 +36,7 @@
             - "5000:5000"
           volumes:
             - ./backend:/app
-            
+          
         frontend:
           image: nginx:alpine
           ports:
@@ -20,9 +44,9 @@
           volumes:
             - ./frontend:/usr/share/nginx/html
 
-- name: Wait 30 seconds before starting services
+- name: Wait 10 seconds before starting services
   pause:
-    seconds: 30
+    seconds: 10
 
 - name: Start microservices with docker-compose
   command: docker-compose up -d
@@ -31,7 +55,7 @@
 
 - name: Wait for services initialization
   pause:
-    seconds: 20
+    seconds: 15
 
 - name: Check docker containers status
   command: docker-compose ps
@@ -43,23 +67,13 @@
   debug:
     msg: "{{ containers_status.stdout_lines }}"
 
-- name: Check backend health with retries
+- name: Simple backend health check
   shell: |
-    MAX_RETRIES=5
-    for i in $(seq 1 $MAX_RETRIES); do
-      echo "Attempt $i of $MAX_RETRIES..."
-      STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000 2>/dev/null || echo "000")
-      if [ "$STATUS" = "200" ]; then
-        echo "200"
-        exit 0
-      fi
-      sleep 3
-    done
-    echo "500"
+    curl -s -o /dev/null -w "%{http_code}" http://localhost:5000 || echo "500"
   register: backend_health
   changed_when: false
 
-- name: Check frontend health
+- name: Simple frontend health check
   shell: |
     curl -s -o /dev/null -w "%{http_code}" http://localhost:80 || echo "500"
   register: frontend_health
@@ -70,14 +84,3 @@
     msg:
       - "Backend HTTP status: {{ backend_health.stdout }}"
       - "Frontend HTTP status: {{ frontend_health.stdout }}"
-
-- name: Show backend logs for debugging
-  shell: |
-    docker logs backend-app --tail 20 2>/dev/null || echo "Cannot get backend logs"
-  when: backend_health.stdout != "200"
-  register: backend_logs
-
-- name: Display backend logs
-  debug:
-    msg: "Backend logs: {{ backend_logs.stdout }}"
-  when: backend_health.stdout != "200"
