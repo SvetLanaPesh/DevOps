@@ -1,42 +1,83 @@
 ---
 - name: Start microservices
-  command: docker-compose up -d
-  args:
-    chdir: "{{ base_dir }}"
-  register: start_result
-
-- name: Wait for services to initialize
-  pause:
-    seconds: 10
-
-- name: Check services status
-  command: docker-compose ps
-  args:
-    chdir: "{{ base_dir }}"
-  register: services_status
-
-- name: Show services status
-  debug:
-    msg: "{{ services_status.stdout_lines }}"
-
-- name: Quick health check
-  block:
-    - name: Test backend
+  hosts: devnode
+  tags: start_services
+  tasks:
+    # 1. ЖДЕМ перед запуском (главное исправление!)
+    - name: Wait before starting services
+      pause:
+        seconds: 45
+      
+    # 2. Запускаем docker-compose
+    - name: Start docker-compose
+      command: docker-compose up -d
+      args:
+        chdir: "{{ base_dir }}"
+      register: start_result
+      
+    # 3. ЖДЕМ после запуска
+    - name: Wait for services to initialize
+      pause:
+        seconds: 30
+      
+    # 4. Проверяем статус
+    - name: Check services status
+      command: docker-compose ps
+      args:
+        chdir: "{{ base_dir }}"
+      register: services_status
+      
+    - name: Show services status
+      debug:
+        msg: "{{ services_status.stdout_lines }}"
+      
+    # 5. Health check с повторными попытками
+    - name: Test backend with retries
       shell: |
-        curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/data || echo "500"
+        # Пробуем 3 раза с интервалом
+        for i in {1..3}; do
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/data 2>/dev/null || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "200"
+            exit 0
+          fi
+          echo "Попытка $i: статус $STATUS"
+          sleep 10
+        done
+        echo "$STATUS"
       register: backend_check
       changed_when: false
-
-    - name: Test frontend
+      
+    - name: Test frontend with retries
       shell: |
-        curl -s -o /dev/null -w "%{http_code}" http://localhost:80 || echo "500"
+        for i in {1..3}; do
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:80 2>/dev/null || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "200"
+            exit 0
+          fi
+          sleep 5
+        done
+        echo "$STATUS"
       register: frontend_check
       changed_when: false
-
+      
     - name: Show health status
       debug:
         msg:
           - "Backend status: {{ backend_check.stdout }}"
           - "Frontend status: {{ frontend_check.stdout }}"
-  ignore_errors: yes
+          
+    # 6. Перезапускаем backend если не работает
+    - name: Restart backend if unhealthy
+      command: docker-compose restart backend
+      args:
+        chdir: "{{ base_dir }}"
+      when: backend_check.stdout != "200"
+      
+    # 7. Финальное ожидание
+    - name: Final wait after possible restart
+      pause:
+        seconds: 15
+      when: backend_check.stdout != "200"
 
