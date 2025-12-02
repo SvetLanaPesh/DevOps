@@ -17,8 +17,8 @@ backend_repo: "https://github.com/SvetLanaPesh/devops-backend.git"
 devops_repo: "https://github.com/SvetLanaPesh/devops.git"
 
 # Versions
-frontend_version: "v2.0"
-backend_version: "v2.0"
+frontend_version: "main"
+backend_version: "main"
 devops_version: "main"
 
 # Docker Compose
