@@ -45,12 +45,6 @@
             - {{ backend_dir }}:/app
           command: >
             sh -c \"pip install --no-cache-dir -r requirements.txt && python app.py\"
-          network_mode: \"bridge\"
-          dns:
-            - 8.8.8.8
-            - 8.8.4.4
-          sysctls:
-            - net.ipv4.ip_forward=1
           container_name: backend-app
           ports:
             - "5000:5000"
