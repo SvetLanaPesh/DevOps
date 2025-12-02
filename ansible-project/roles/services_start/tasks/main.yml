@@ -1,86 +1,45 @@
 ---
-- name: Stop and remove old containers
-  shell: |
-    # Останавливаем и удаляем ВСЕ контейнеры с нашими именами
-    docker stop backend-app frontend-app microservices-backend-1 microservices-frontend-1 2>/dev/null || true
-    docker rm backend-app frontend-app microservices-backend-1 microservices-frontend-1 2>/dev/null || true
-    # Останавливаем docker-compose если запущен
-    cd "{{ base_dir }}" && docker-compose down 2>/dev/null || true
-  ignore_errors: yes
-
-- name: Check and free port 80
-  shell: |
-    # Проверяем кто занимает порт 80
-    if netstat -tuln | grep ':80 ' > /dev/null; then
-      echo "Port 80 is in use, finding process..."
-      # Находим и убиваем процесс на порту 80
-      PID=$(lsof -ti:80 2>/dev/null || echo "")
-      if [ -n "$PID" ]; then
-        echo "Killing process $PID using port 80"
-        kill -9 $PID 2>/dev/null || true
-        sleep 2
-      fi
-    fi
-  ignore_errors: yes
-
-- name: Fix docker-compose.yml for working backend
-  copy:
-    dest: "{{ base_dir }}/docker-compose.yml"
-    content: |
-      version: '3.8'
-      services:
-        backend:
-          image: python:3.9-slim
-          command: python -m http.server 5000
-          ports:
-            - "5000:5000"
-          volumes:
-            - ./backend:/app
-          
-        frontend:
-          image: nginx:alpine
-          ports:
-            - "80:80"
-          volumes:
-            - ./frontend:/usr/share/nginx/html
-
-- name: Wait 10 seconds before starting services
+- name: Pause
   pause:
-    seconds: 10
+    seconds: 30
 
-- name: Start microservices with docker-compose
+- name: Start microservices
   command: docker-compose up -d
   args:
     chdir: "{{ base_dir }}"
+  register: start_result
 
-- name: Wait for services initialization
+- name: Wait for services to initialize
   pause:
-    seconds: 15
+    seconds: 10
 
-- name: Check docker containers status
+- name: Check services status
   command: docker-compose ps
   args:
     chdir: "{{ base_dir }}"
-  register: containers_status
+  register: services_status
 
-- name: Show containers status
+- name: Show services status
   debug:
-    msg: "{{ containers_status.stdout_lines }}"
+    msg: "{{ services_status.stdout_lines }}"
 
-- name: Simple backend health check
-  shell: |
-    curl -s -o /dev/null -w "%{http_code}" http://localhost:5000 || echo "500"
-  register: backend_health
-  changed_when: false
+- name: Quick health check
+  block:
+    - name: Test backend
+      shell: |
+        curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/data || echo "500"
+      register: backend_check
+      changed_when: false
 
-- name: Simple frontend health check
-  shell: |
-    curl -s -o /dev/null -w "%{http_code}" http://localhost:80 || echo "500"
-  register: frontend_health
-  changed_when: false
+    - name: Test frontend
+      shell: |
+        curl -s -o /dev/null -w "%{http_code}" http://localhost:80 || echo "500"
+      register: frontend_check
+      changed_when: false
 
-- name: Show services health status
-  debug:
-    msg:
-      - "Backend HTTP status: {{ backend_health.stdout }}"
-      - "Frontend HTTP status: {{ frontend_health.stdout }}"
+    - name: Show health status
+      debug:
+        msg:
+          - "Backend status: {{ backend_check.stdout }}"
+          - "Frontend status: {{ frontend_check.stdout }}"
+  ignore_errors: yes
