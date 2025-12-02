@@ -43,7 +43,7 @@
           working_dir: /app
           volumes:
             - {{ backend_dir }}:/app
-          command: sh -c "cd /app && pip install --no-cache-dir -rrequirements.txt && python app.py"
+          command: sh -c "cd /app && pip install --no-cache-dir -requirements.txt && python app.py"
           container_name: backend-app
           ports:
             - "5000:5000"

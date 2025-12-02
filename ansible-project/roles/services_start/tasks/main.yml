@@ -1,8 +1,4 @@
 ---
-- name: Pause
-  pause:
-    seconds: 30
-
 - name: Start microservices
   command: docker-compose up -d
   args:
@@ -11,7 +7,7 @@
 
 - name: Wait for services to initialize
   pause:
-    seconds: 10
+    seconds: 20
 
 - name: Check services status
   command: docker-compose ps
@@ -22,6 +18,10 @@
 - name: Show services status
   debug:
     msg: "{{ services_status.stdout_lines }}"
+    
+- name: Pause
+  pause:
+    seconds: 20
 
 - name: Quick health check
   block:
