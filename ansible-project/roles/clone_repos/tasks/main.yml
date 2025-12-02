@@ -54,8 +54,6 @@
           container_name: backend-app
           ports:
             - "5000:5000"
-          networks:
-            - app-network
           restart: unless-stopped
           
         frontend:
